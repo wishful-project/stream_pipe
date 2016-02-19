@@ -688,6 +688,7 @@ class ThreadedFeeder(Iterable):
 					self.outqueue.put(StopIteration)
 					break
 		self.thread = threading.Thread(target=feeder)
+		self.thread.deamon = True
 		self.thread.start()
 	
 	def __iter__(self):
