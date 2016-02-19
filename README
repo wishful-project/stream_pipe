@@ -10,12 +10,4 @@ See the reference documentation at http://www.trinhhaianh.com/stream.py
 INSTALL
 =======
 
-This module requires Python 2.6.
-
-To install system-wide:
-
-    $ sudo python ./setup.py install
-
-or if you just need it in a project:
-
-    $ cp ./stream.py ~/your/project
+pip install ./stream-pipe --upgrade 
