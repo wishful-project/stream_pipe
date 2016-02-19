@@ -199,8 +199,10 @@ class MyPktRule(threading.Thread):
       elements[2] = filter(lambda x: bigVals(x, 40))
       elements[3] = map(notify_ctrl)
     
-      self.myGen() >> elements[0] >> elements[1] >> elements[2] >> elements[3] >> elements[4] >> sink 
-
+      try:
+        self.myGen() >> elements[0] >> elements[1] >> elements[2] >> elements[3] >> elements[4] >> sink 
+      except Exception as e:
+        pass
 
 
 
@@ -214,18 +216,18 @@ if __name__ == '__main__':
   if 1:
     thread = None
     try:
-      thread = MyPktRule("P", iface="wlan0", pfilter="icmp", field_selector="IP.ttl")
+      thread = MyPktRule("P", iface="eth0", pfilter="icmp", field_selector="IP.ttl")
       thread.deamon = True
       thread.start()
 
       while 1:
         time.sleep(1)
 
-    #except KeyboardInterrupt as e:
-    #  print e
+    except KeyboardInterrupt as e:
+      print e
 
-    #except Exception as e:
-    #  print e
+    except Exception as e:
+      print e
 
     finally:
       thread.stop()
