@@ -70,15 +70,13 @@ Articles written about this module by the author can be retrieved from
 <http://blog.onideas.ws/tag/project:stream.py>.
 """
 
-from __future__ import with_statement
-
-import __builtin__
+import builtins
 import copy
 import collections
 import heapq
 import itertools
 import operator
-import Queue
+import queue
 import re
 import select
 import sys
@@ -86,8 +84,6 @@ import threading
 import time
 
 from operator import itemgetter, attrgetter
-
-zip = itertools.izip
 
 try:
 	import multiprocessing
@@ -100,12 +96,6 @@ try:
 	Iterable = collections.Iterable
 except AttributeError:
 	Iterable = object
-
-try:
-	next
-except NameError:
-	def next(iterator):
-		return iterator.next()
 
 try:
 	from operator import methodcaller
@@ -238,6 +228,9 @@ class itemtaker(Stream):
 	def __init__(self, key=None):
 		self.key = key
 
+	def stop(self):
+		pass
+
 	@staticmethod
 	def __getitem__(key):
 		if (type(key) is int) or (type(key) is slice):
@@ -284,6 +277,32 @@ class itemtaker(Stream):
 
 item = itemtaker()
 
+
+class Sink(Stream):
+	def __init__(self):
+		super(Sink, self).__init__()
+		self._stop = False
+
+	def stop(self):
+		self._stop = True
+
+	def __call__(self, iterator):
+		for x in iterator:
+			if not self._stop:
+				pass
+			else:
+				return []
+
+	def __pipe__(self, inpipe):
+		i = iter(inpipe)
+		for x in i:
+			if not self._stop:
+				pass
+			else:
+				return []
+
+	def __repr__(self):
+		return '<sink at %s>' % hex(id(self))
 
 class takei(Stream):
 	"""Take elements of the input stream by indices.
@@ -407,7 +426,7 @@ class apply(Stream):
 		return itertools.starmap(self.function, iterator)
 
 
-class map(Stream):
+class smap(Stream):
 	"""Invoke a function using each element of the input stream as its only
 	argument, a la itertools.imap.
 
@@ -419,14 +438,14 @@ class map(Stream):
 		"""function: to be called with each stream element as its
 		only argument
 		"""
-		super(map, self).__init__()
+		super(smap, self).__init__()
 		self.function = function
 
 	def __call__(self, iterator):
-		return itertools.imap(self.function, iterator)
+		return map(self.function, iterator)
 
 
-class filter(Stream):
+class sfilter(Stream):
 	"""Filter the input stream, selecting only values which evaluates to True
 	by the given function, a la itertools.ifilter.
 
@@ -438,11 +457,11 @@ class filter(Stream):
 		"""function: to be called with each stream element as its
 		only argument
 		"""
-		super(filter, self).__init__()
+		super(sfilter, self).__init__()
 		self.function = function
 
 	def __call__(self, iterator):
-		return itertools.ifilter(self.function, iterator)
+		return filter(self.function, iterator)
 
 
 class takewhile(Stream):
@@ -532,7 +551,7 @@ class chop(Stream):
 		return chopper()
 
 
-class itemcutter(map):
+class itemcutter(smap):
 	"""Slice each element of the input stream.
 
 	>>> [range(10), range(10, 20)] >> cut[::2] >> list
@@ -678,7 +697,7 @@ class ThreadedFeeder(Iterable):
 		This should improve performance when the generator often
 		blocks in system calls.
 		"""
-		self.outqueue = Queue.Queue()
+		self.outqueue = queue.Queue()
 		def feeder():
 			i = generator(*args, **kwargs)
 			while 1:
@@ -758,9 +777,9 @@ class ThreadPool(Stream):
 		"""
 		super(ThreadPool, self).__init__()
 		self.function = function
-		self.inqueue = Queue.Queue()
-		self.outqueue = Queue.Queue()
-		self.failqueue = Queue.Queue()
+		self.inqueue = queue.Queue()
+		self.outqueue = queue.Queue()
+		self.failqueue = queue.Queue()
 		self.failure = Stream(_iterqueue(self.failqueue))
 		self.closed = False
 		def work():
@@ -772,7 +791,7 @@ class ThreadPool(Stream):
 					next(dupinput)
 				except StopIteration:
 					break
-				except Exception, e:
+				except Exception as e:
 					self.failqueue.put((next(dupinput), e))
 		self.worker_threads = []
 		for _ in range(poolsize):
@@ -844,7 +863,7 @@ class ProcessPool(Stream):
 					next(dupinput)
 				except StopIteration:
 					break
-				except Exception, e:
+				except Exception as e:
 					self.failqueue.put((next(dupinput), e))
 		self.worker_processes = []
 		for _ in range(self.poolsize):
@@ -926,13 +945,13 @@ class Executor(object):
 		                      kwargs=kwargs)
 		self.jobcount = 0
 		self._status = []
-		self.waitqueue = Queue.Queue()
+		self.waitqueue = queue.Queue()
 		if poolclass is ProcessPool:
 			self.resultqueue = multiprocessing.queues.SimpleQueue()
 			self.failqueue = multiprocessing.queues.SimpleQueue()
 		else:
-			self.resultqueue = Queue.Queue()
-			self.failqueue = Queue.Queue()
+			self.resultqueue = queue.Queue()
+			self.failqueue = queue.Queue()
 		self.result = Stream(_iterqueue(self.resultqueue))
 		self.failure = Stream(_iterqueue(self.failqueue))
 		self.closed = False
@@ -1162,7 +1181,7 @@ class PSorter(Stream):
 		self.inpipes = []
 
 	def __iter__(self):
-		return heapq.merge(*__builtin__.map(_iterrecv, self.inpipes))
+		return heapq.merge(map(_iterrecv, self.inpipes))
 	
 	def __pipe__(self, inpipe):
 		self.inpipes.append(inpipe.outpipe)
@@ -1179,7 +1198,7 @@ class QSorter(Stream):
 		self.inqueues = []
 
 	def __iter__(self):
-		return heapq.merge(*__builtin__.map(_iterqueue, self.inqueues))
+		return heapq.merge(map(_iterqueue, self.inqueues))
 	
 	def __pipe__(self, inpipe):
 		self.inqueues.append(inpipe.outqueue)
@@ -1238,7 +1257,7 @@ def chaincall(func, initval):
 
 
 #_____________________________________________________________________
-# Useful curried versions of __builtin__.{max, min, reduce}
+# Useful curried versions of builtins.{max, min, reduce}
 
 
 def maximum(key):
@@ -1269,9 +1288,9 @@ def reduce(function, initval=None):
 	15
 	"""
 	if initval is None:
-		return lambda s: __builtin__.reduce(function, s)
+		return lambda s: builtins.reduce(function, s)
 	else:
-		return lambda s: __builtin__.reduce(function, s, initval)
+		return lambda s: builtins.reduce(function, s, initval)
 
 
 #_____________________________________________________________________

@@ -1,1 +1,1 @@
-from stream import *
+from .stream import *
